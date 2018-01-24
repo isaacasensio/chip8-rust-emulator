@@ -7,7 +7,7 @@ authors = ["Isaac Asensio <isaac.asensio@gmail.com>"]
 
 [lib]
 name = "chip8"
-path = "src/executor.rs"
+path = "src/chip8.rs"
 
 [[bin]]
 name = "chip8"
