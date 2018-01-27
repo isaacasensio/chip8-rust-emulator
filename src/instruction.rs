@@ -26,7 +26,7 @@ impl Instruction {
         ((self.raw & 0x00F0) >> 4) as u8
     }
 
-    pub fn nnn(self) -> u16{
+    pub fn nnn(&self) -> u16{
         (self.raw & 0x0FFF) as u16
     }
 
@@ -34,7 +34,7 @@ impl Instruction {
         (self.raw & 0x00FF) as u8
     }
 
-    pub fn n(self) -> u16{
+    pub fn n(&self) -> u16{
         (self.raw & 0x000F) as u16
     }
 }
