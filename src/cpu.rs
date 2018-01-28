@@ -92,6 +92,25 @@ impl Cpu {
         self.pc += 2;
     }
 
+    fn adds_vy_to_vx(&mut self, instruction: &Instruction) {
+        let x = instruction.x() as usize;
+        let y = instruction.y() as usize;
+        let sum : u16 = self.reg_vx[x] as u16 + self.reg_vx[y] as u16;
+        self.reg_vx[0xF] = if sum > 0xFF { 0x1 } else { 0x0 };
+        self.reg_vx[x] = sum as u8;
+        self.pc += 2;
+    }
+
+    fn subtracts_vy_to_vx(&mut self, instruction: &Instruction) {
+        let x = instruction.x() as usize;
+        let y = instruction.y() as usize;
+
+        let subtract = self.reg_vx[x as usize] as i8 - self.reg_vx[y as usize] as i8;
+        self.reg_vx[x] = subtract as u8;
+        self.reg_vx[0xF] = if subtract < 0 { 0x1 } else { 0x0 };
+        self.pc += 2;
+    }
+
     fn jump_to_address_nnn_plus_v0(&mut self, instruction: &Instruction) {
         self.pc = START + instruction.nnn() + self.reg_vx[0] as u16;
     }
@@ -129,6 +148,8 @@ impl Cpu {
             (0x8, 0x1) => self.bitwise_or(instruction),
             (0x8, 0x2) => self.bitwise_and(instruction),
             (0x8, 0x3) => self.bitwise_xor(instruction),
+            (0x8, 0x4) => self.adds_vy_to_vx(instruction),
+            (0x8, 0x5) => self.subtracts_vy_to_vx(instruction),
             (0x9, 0x0) => self.skip_on_vx_not_equal_vy(instruction),
             (0xA, _) => self.write_i(instruction),
             (0xB, _) => self.jump_to_address_nnn_plus_v0(instruction),
@@ -184,11 +205,8 @@ mod executor_test {
         let ram = &mut Ram::new();
 
         write_operation_on_ram(ram, super::START, 0x6511);
-
         write_operation_on_ram(ram, super::START + 2, 0x6611);
-
         write_operation_on_ram(ram, super::START + 4, 0x5560);
-
         write_operation_on_ram(ram, super::START + 8, 0x6766);
 
         cpu.execute(ram);
@@ -205,11 +223,8 @@ mod executor_test {
         let ram = &mut Ram::new();
 
         write_operation_on_ram(ram, super::START, 0x6511);
-
         write_operation_on_ram(ram, super::START + 2, 0x4560);
-
         write_operation_on_ram(ram, super::START + 4, 0x6512);
-
         write_operation_on_ram(ram, super::START + 6, 0x6766);
 
         cpu.execute(ram);
@@ -226,9 +241,7 @@ mod executor_test {
         let ram = &mut Ram::new();
 
         write_operation_on_ram(ram, super::START, 0x6511);
-
         write_operation_on_ram(ram, super::START + 2, 0x3511);
-
         write_operation_on_ram(ram, super::START + 6, 0x6766);
 
         cpu.execute(ram);
@@ -244,11 +257,8 @@ mod executor_test {
         let ram = &mut Ram::new();
 
         write_operation_on_ram(ram, super::START, 0x6111);
-
         write_operation_on_ram(ram, super::START, 0x6222);
-
         write_operation_on_ram(ram, super::START + 2, 0x9120);
-
         write_operation_on_ram(ram, super::START + 6, 0x6766);
 
         cpu.execute(ram);
@@ -292,7 +302,6 @@ mod executor_test {
         let ram = &mut Ram::new();
 
         write_operation_on_ram(ram, super::START, 0x6105); //v1 = 0x05
-
         write_operation_on_ram(ram, super::START + 2, 0x8010); //v0 = v1
 
         cpu.execute(ram);
@@ -311,7 +320,6 @@ mod executor_test {
 
         write_operation_on_ram(ram, super::START, 0x60E5); //v0 = 0xe5
         write_operation_on_ram(ram, super::START + 2, 0x6116); //v1 = 0x16
-
         write_operation_on_ram(ram, super::START + 4, 0x8011);
         // V0=V0|V1
         // 11100101 E5
@@ -333,7 +341,6 @@ mod executor_test {
 
         write_operation_on_ram(ram, super::START, 0x60E5); //v0 = 0xe5
         write_operation_on_ram(ram, super::START + 2, 0x6116); //v1 = 0x16
-
         write_operation_on_ram(ram, super::START + 4, 0x8012);
         // V0=V0|V1
         // 11100101 E5
@@ -369,6 +376,75 @@ mod executor_test {
 
         assert_eq!(cpu.read_vx(0), 0xF3);
     }
+
+    #[test]
+    fn op_8xy4_adds_vy_to_vx_without_carry() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+
+        write_operation_on_ram(ram, super::START, 0x6001); //v0 = 0x01
+        write_operation_on_ram(ram, super::START + 2, 0x6102); //v1 = 0x02
+        write_operation_on_ram(ram, super::START + 4, 0x8014);
+
+        cpu.execute(ram);
+        cpu.execute(ram);
+        cpu.execute(ram);
+
+        assert_eq!(cpu.read_vx(0), 0x03);
+        assert_eq!(cpu.read_vx(0xF), 0x0);
+    }
+
+    #[test]
+    fn op_8xy4_adds_vy_to_vx_with_carry() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+
+        write_operation_on_ram(ram, super::START, 0x60FF); //v0 = 0xFF
+        write_operation_on_ram(ram, super::START + 2, 0x61FF); //v1 = 0xFF
+        write_operation_on_ram(ram, super::START + 4, 0x8014);
+
+        cpu.execute(ram);
+        cpu.execute(ram);
+        cpu.execute(ram);
+
+        assert_eq!(cpu.read_vx(0), 0xFE);
+        assert_eq!(cpu.read_vx(0xF), 0x1);
+    }
+
+    #[test]
+    fn op_8xy5_subtracts_vy_from_vx_without_borrow() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+
+        write_operation_on_ram(ram, super::START, 0x6002); //v0 = 0x02
+        write_operation_on_ram(ram, super::START + 2, 0x6101); //v1 = 0x01
+        write_operation_on_ram(ram, super::START + 4, 0x8015);
+
+        cpu.execute(ram);
+        cpu.execute(ram);
+        cpu.execute(ram);
+
+        assert_eq!(cpu.read_vx(0), 0x01);
+        assert_eq!(cpu.read_vx(0xF), 0x0);
+    }
+
+    #[test]
+    fn op_8xy5_subtracts_vy_from_vx_with_borrow() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+
+        write_operation_on_ram(ram, super::START, 0x6002); //v0 = 0x02
+        write_operation_on_ram(ram, super::START + 2, 0x6103); //v1 = 0x03
+        write_operation_on_ram(ram, super::START + 4, 0x8015);
+
+        cpu.execute(ram);
+        cpu.execute(ram);
+        cpu.execute(ram);
+
+        assert_eq!(cpu.read_vx(0), 0xFF);
+        assert_eq!(cpu.read_vx(0xF), 0x1);
+    }
+
 
     #[test]
     #[should_panic]
