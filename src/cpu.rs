@@ -2,6 +2,7 @@ use ram::Ram;
 use instruction::Instruction;
 
 const START: u16 = 0x200;
+const CARRY_FLAG: usize = 0xF;
 
 pub struct Cpu {
     pc: u16,
@@ -96,7 +97,7 @@ impl Cpu {
         let x = instruction.x() as usize;
         let y = instruction.y() as usize;
         let sum : u16 = self.reg_vx[x] as u16 + self.reg_vx[y] as u16;
-        self.reg_vx[0xF] = if sum > 0xFF { 0x1 } else { 0x0 };
+        self.reg_vx[CARRY_FLAG] = if sum > 0xFF { 0x1 } else { 0x0 };
         self.reg_vx[x] = sum as u8;
         self.pc += 2;
     }
@@ -105,14 +106,29 @@ impl Cpu {
         let x = instruction.x() as usize;
         let y = instruction.y() as usize;
 
-        let subtract = self.reg_vx[x as usize] as i8 - self.reg_vx[y as usize] as i8;
+        let subtract = self.reg_vx[x] as i8 - self.reg_vx[y] as i8;
         self.reg_vx[x] = subtract as u8;
-        self.reg_vx[0xF] = if subtract < 0 { 0x1 } else { 0x0 };
+        self.reg_vx[CARRY_FLAG] = if subtract < 0 { 0x1 } else { 0x0 };
+        self.pc += 2;
+    }
+
+    fn subtracts_vx_to_vy(&mut self, instruction: &Instruction) {
+        let x = instruction.x() as usize;
+        let y = instruction.y() as usize;
+
+        let subtract = self.reg_vx[y] as i8 - self.reg_vx[x] as i8;
+        self.reg_vx[x] = subtract as u8;
+        self.reg_vx[CARRY_FLAG] = if subtract < 0 { 0x0 } else { 0x1 };
         self.pc += 2;
     }
 
     fn jump_to_address_nnn_plus_v0(&mut self, instruction: &Instruction) {
         self.pc = START + instruction.nnn() + self.reg_vx[0] as u16;
+    }
+
+    fn jump_to_address_nnn(&mut self, instruction: &Instruction) {
+        self.pc = START + instruction.nnn();
+        println!("{}", self.pc);
     }
 
     pub fn read_vx(&mut self, x: usize) -> u8 {
@@ -139,6 +155,7 @@ impl Cpu {
         println!("pc: {}", self.pc);
 
         match (op, instruction.n()) {
+            (0x1, _) => self.jump_to_address_nnn(instruction),
             (0x3, _) => self.skip_on_vx_equal_nn(instruction),
             (0x4, _) => self.skip_on_vx_not_equal_nn(instruction),
             (0x5, _) => self.skip_on_vx_equal_vy(instruction),
@@ -150,6 +167,7 @@ impl Cpu {
             (0x8, 0x3) => self.bitwise_xor(instruction),
             (0x8, 0x4) => self.adds_vy_to_vx(instruction),
             (0x8, 0x5) => self.subtracts_vy_to_vx(instruction),
+            (0x8, 0x7) => self.subtracts_vx_to_vy(instruction),
             (0x9, 0x0) => self.skip_on_vx_not_equal_vy(instruction),
             (0xA, _) => self.write_i(instruction),
             (0xB, _) => self.jump_to_address_nnn_plus_v0(instruction),
@@ -443,6 +461,56 @@ mod executor_test {
 
         assert_eq!(cpu.read_vx(0), 0xFF);
         assert_eq!(cpu.read_vx(0xF), 0x1);
+    }
+
+    #[test]
+    fn op_8xy7_without_borrow() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+
+        write_operation_on_ram(ram, super::START, 0x6002); //v0 = 0x02
+        write_operation_on_ram(ram, super::START + 2, 0x6103); //v1 = 0x03
+        write_operation_on_ram(ram, super::START + 4, 0x8017);
+
+        cpu.execute(ram);
+        cpu.execute(ram);
+        cpu.execute(ram);
+
+        assert_eq!(cpu.read_vx(0), 0x1);
+        assert_eq!(cpu.read_vx(0xF), 0x1);
+    }
+
+    #[test]
+    fn op_8xy7_with_borrow() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+
+        write_operation_on_ram(ram, super::START, 0x6005); //v0 = 0x05
+        write_operation_on_ram(ram, super::START + 2, 0x6101); //v1 = 0x01
+        write_operation_on_ram(ram, super::START + 4, 0x8017);
+
+        cpu.execute(ram);
+        cpu.execute(ram);
+        cpu.execute(ram);
+
+        assert_eq!(cpu.read_vx(0), 0xFC);
+        assert_eq!(cpu.read_vx(0xF), 0x0);
+    }
+
+    #[test]
+    fn op_1nnn_go_to_nnn() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+
+        write_operation_on_ram(ram, super::START, 0x6005); //v0 = 0x05
+        write_operation_on_ram(ram, super::START + 2, 0x1022);
+        write_operation_on_ram(ram, super::START + 0x22, 0x6015);
+
+        cpu.execute(ram);
+        cpu.execute(ram);
+        cpu.execute(ram);
+
+        assert_eq!(cpu.read_vx(0x0), 0x15);
     }
 
 
