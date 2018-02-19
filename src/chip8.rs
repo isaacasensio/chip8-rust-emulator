@@ -18,11 +18,3 @@ impl Chip8 {
         }
     }
 }
-
-#[cfg(test)]
-mod chip8_test {
-
-    #[test]
-    fn op_6xnn_assigns_nn_to_vx() {
-    }
-}
