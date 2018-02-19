@@ -131,6 +131,12 @@ impl Cpu {
         println!("{}", self.pc);
     }
 
+    // Adds VX to I. 
+    // I +=Vx
+    fn adds_vx_to_i(&mut self, instruction: &Instruction) {
+        self.i = self.i + self.reg_vx[instruction.x() as usize] as u16;
+    }
+
     pub fn read_vx(&mut self, x: usize) -> u8 {
         return self.reg_vx[x];
     }
@@ -171,6 +177,7 @@ impl Cpu {
             (0x9, 0x0) => self.skip_on_vx_not_equal_vy(instruction),
             (0xA, _) => self.write_i(instruction),
             (0xB, _) => self.jump_to_address_nnn_plus_v0(instruction),
+            (0xF, _) => self.adds_vx_to_i(instruction),
             _ => panic!("Unknown instruction {}", raw)
         }
 

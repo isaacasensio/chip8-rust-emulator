@@ -3,7 +3,7 @@ mod cpu_test {
     use ram::Ram;
     use cpu::{Cpu, START};
 
-    fn write_operation_on_ram(ram: &mut Ram, address: u16, value: u16){
+    fn write_operation_on_ram(ram: &mut Ram, address: u16, value: u16) {
         let hi = (value >> 8) as u8;
         let lo = (value & 0x00FF) as u8;
 
@@ -70,7 +70,7 @@ mod cpu_test {
         cpu.execute(ram);
 
         assert_eq!(cpu.read_vx(5), 0x11);
-        assert_eq!(cpu.read_vx(7), 0x66 );
+        assert_eq!(cpu.read_vx(7), 0x66);
     }
 
     #[test]
@@ -284,6 +284,25 @@ mod cpu_test {
     }
 
     #[test]
+    fn op_fx1e_adds_vx_to_i() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+
+        write_operation_on_ram(ram, START, 0x6001); //v0 = 0x01
+        cpu.execute(ram);
+
+        write_operation_on_ram(ram, START + 2, 0xF01E); //i = 0x01
+        cpu.execute(ram);
+        assert_eq!(cpu.read_i(), 0x01);
+
+        write_operation_on_ram(ram, START + 4, 0x6102); //v1 = 0x02
+        cpu.execute(ram);
+        write_operation_on_ram(ram, START + 6, 0xF11E); //i = 0x03
+        cpu.execute(ram);
+        assert_eq!(cpu.read_i(), 0x03);
+    }
+
+    #[test]
     fn op_8xy7_without_borrow() {
         let mut cpu = Cpu::new();
         let ram = &mut Ram::new();
@@ -333,7 +352,6 @@ mod cpu_test {
         assert_eq!(cpu.read_vx(0x0), 0x15);
     }
 
-
     #[test]
     #[should_panic]
     fn unknown_operation_should_fail() {
@@ -344,4 +362,3 @@ mod cpu_test {
         cpu.execute(ram);
     }
 }
-
