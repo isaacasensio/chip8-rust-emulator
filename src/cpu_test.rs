@@ -353,6 +353,26 @@ mod cpu_test {
     }
 
     #[test]
+    fn op_fx55_reg_dump() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+    
+        for x in 0..6  {
+            let address  = 0x6000 + (x * 256);
+            write_operation_on_ram(ram, START + (2 * x), address + x); //vx = 0x0x
+            cpu.execute(ram);
+            assert_eq!(cpu.read_vx(x as usize), x as u8);
+        }
+
+        write_operation_on_ram(ram, START + 12, 0xf555); 
+        cpu.execute(ram);
+
+        for x in 0..4  {
+            assert_eq!(cpu.memory.read_bytes(x as u16), x);
+        }
+    }
+
+    #[test]
     #[should_panic]
     fn unknown_operation_should_fail() {
         let mut cpu = Cpu::new();

@@ -8,6 +8,7 @@ pub struct Cpu {
     pc: u16,
     i: u16,
     reg_vx: [u8; 16],
+    pub memory: Ram
 }
 
 impl Cpu {
@@ -16,6 +17,7 @@ impl Cpu {
             pc: START,
             i: 0,
             reg_vx: [0; 16],
+            memory: Ram::new()
         }
     }
 
@@ -128,13 +130,23 @@ impl Cpu {
 
     fn jump_to_address_nnn(&mut self, instruction: &Instruction) {
         self.pc = START + instruction.nnn();
-        println!("{}", self.pc);
     }
 
     // Adds VX to I. 
     // I +=Vx
     fn adds_vx_to_i(&mut self, instruction: &Instruction) {
         self.i = self.i + self.reg_vx[instruction.x() as usize] as u16;
+    }
+
+    // Stores V0 to VX (including VX) in memory starting at address I. 
+    // I is increased by 1 for each value written.
+    fn load_from_vx_to_mem(&mut self, instruction: &Instruction) {
+        let x_usize = instruction.x() as usize;
+        for j in 0..( x_usize + 1) {
+            self.memory.write_bytes(self.i, self.reg_vx[j]);
+            self.i += 1;
+        }
+        self.pc += 2;
     }
 
     pub fn read_vx(&mut self, x: usize) -> u8 {
@@ -156,28 +168,32 @@ impl Cpu {
         let instruction = &mut Instruction::new(raw);
         let op = instruction.op();
 
-        println!("op: {}", op);
-        println!("raw: {}", raw);
-        println!("pc: {}", self.pc);
+        // println!("op: {}", op);
+        // println!("raw: {}", raw);
+        // println!("pc: {}", self.pc);
 
-        match (op, instruction.n()) {
-            (0x1, _) => self.jump_to_address_nnn(instruction),
-            (0x3, _) => self.skip_on_vx_equal_nn(instruction),
-            (0x4, _) => self.skip_on_vx_not_equal_nn(instruction),
-            (0x5, _) => self.skip_on_vx_equal_vy(instruction),
-            (0x6, _) => self.write_on_vx(instruction),
-            (0x7, _) => self.add_on_vx(instruction),
-            (0x8, 0x0) => self.assign_vx_to_vy(instruction),
-            (0x8, 0x1) => self.bitwise_or(instruction),
-            (0x8, 0x2) => self.bitwise_and(instruction),
-            (0x8, 0x3) => self.bitwise_xor(instruction),
-            (0x8, 0x4) => self.adds_vy_to_vx(instruction),
-            (0x8, 0x5) => self.subtracts_vy_to_vx(instruction),
-            (0x8, 0x7) => self.subtracts_vx_to_vy(instruction),
-            (0x9, 0x0) => self.skip_on_vx_not_equal_vy(instruction),
-            (0xA, _) => self.write_i(instruction),
-            (0xB, _) => self.jump_to_address_nnn_plus_v0(instruction),
-            (0xF, _) => self.adds_vx_to_i(instruction),
+        // println!("y: {}", instruction.y());
+        // println!("n: {}", instruction.n());
+
+        match (op, instruction.x(), instruction.y(), instruction.n()) {
+            (0x1, _, _, _) => self.jump_to_address_nnn(instruction),
+            (0x3, _, _, _) => self.skip_on_vx_equal_nn(instruction),
+            (0x4, _, _, _) => self.skip_on_vx_not_equal_nn(instruction),
+            (0x5, _, _, _) => self.skip_on_vx_equal_vy(instruction),
+            (0x6, _, _, _) => self.write_on_vx(instruction),
+            (0x7, _, _, _) => self.add_on_vx(instruction),
+            (0x8, _, _, 0x0) => self.assign_vx_to_vy(instruction),
+            (0x8, _, _, 0x1) => self.bitwise_or(instruction),
+            (0x8, _, _, 0x2) => self.bitwise_and(instruction),
+            (0x8, _, _, 0x3) => self.bitwise_xor(instruction),
+            (0x8, _, _, 0x4) => self.adds_vy_to_vx(instruction),
+            (0x8, _, _, 0x5) => self.subtracts_vy_to_vx(instruction),
+            (0x8, _, _, 0x7) => self.subtracts_vx_to_vy(instruction),
+            (0x9, _, _, 0x0) => self.skip_on_vx_not_equal_vy(instruction),
+            (0xA, _, _, _) => self.write_i(instruction),
+            (0xB, _, _, _) => self.jump_to_address_nnn_plus_v0(instruction),
+            (0xF, _, 0x1, 0xE) => self.adds_vx_to_i(instruction),
+            (0xF, _, 0x5, 0x5) => self.load_from_vx_to_mem(instruction),
             _ => panic!("Unknown instruction {}", raw)
         }
 
