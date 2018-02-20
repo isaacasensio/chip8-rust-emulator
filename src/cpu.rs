@@ -149,6 +149,17 @@ impl Cpu {
         self.pc += 2;
     }
 
+    // Fills V0 to VX (including VX) with values from memory starting at address I. 
+    // I is increased by 1 for each value written.
+    fn load_to_mem_from_vx(&mut self, instruction: &Instruction) {
+        let x_usize = instruction.x() as usize;
+        for j in 0..( x_usize + 1) {
+            self.reg_vx[j] = self.memory.read_bytes(self.i);
+            self.i += 1;
+        }
+        self.pc += 2;
+    }
+
     pub fn read_vx(&mut self, x: usize) -> u8 {
         return self.reg_vx[x];
     }
@@ -194,6 +205,7 @@ impl Cpu {
             (0xB, _, _, _) => self.jump_to_address_nnn_plus_v0(instruction),
             (0xF, _, 0x1, 0xE) => self.adds_vx_to_i(instruction),
             (0xF, _, 0x5, 0x5) => self.load_from_vx_to_mem(instruction),
+            (0xF, _, 0x6, 0x5) => self.load_to_mem_from_vx(instruction),
             _ => panic!("Unknown instruction {}", raw)
         }
 

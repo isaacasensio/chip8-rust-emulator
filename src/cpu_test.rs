@@ -373,6 +373,24 @@ mod cpu_test {
     }
 
     #[test]
+    fn op_fx65_dump_from_mem_to_vx() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+    
+        for x in 0..6  {
+            cpu.memory.write_bytes(x, x as u8);
+        }
+
+        write_operation_on_ram(ram, START, 0xf565); 
+        cpu.execute(ram);
+
+        for x in 0..6  {
+            assert_eq!(cpu.read_vx(x as usize), x as u8);
+        }
+
+    }
+
+    #[test]
     #[should_panic]
     fn unknown_operation_should_fail() {
         let mut cpu = Cpu::new();
