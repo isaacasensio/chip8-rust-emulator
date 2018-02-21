@@ -160,6 +160,15 @@ impl Cpu {
         self.pc += 2;
     }
 
+    // Shifts VY right by one and copies the result to VX. 
+    // VF is set to the value of the least significant bit of VY 
+    // before the shift.[2]
+    fn shift_vy_and_assign_to_vx(&mut self, instruction: &Instruction){
+        self.reg_vx[CARRY_FLAG] = self.reg_vx[instruction.y() as usize] & 0x01;
+        self.reg_vx[instruction.x() as usize] = self.reg_vx[instruction.y() as usize] >> 1;
+        self.pc += 2;
+    }
+
     pub fn read_vx(&mut self, x: usize) -> u8 {
         return self.reg_vx[x];
     }
@@ -199,6 +208,7 @@ impl Cpu {
             (0x8, _, _, 0x3) => self.bitwise_xor(instruction),
             (0x8, _, _, 0x4) => self.adds_vy_to_vx(instruction),
             (0x8, _, _, 0x5) => self.subtracts_vy_to_vx(instruction),
+            (0x8, _, _, 0x6) => self.shift_vy_and_assign_to_vx(instruction),
             (0x8, _, _, 0x7) => self.subtracts_vx_to_vy(instruction),
             (0x9, _, _, 0x0) => self.skip_on_vx_not_equal_vy(instruction),
             (0xA, _, _, _) => self.write_i(instruction),
