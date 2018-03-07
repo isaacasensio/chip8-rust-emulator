@@ -1,4 +1,4 @@
-#[cfg(tes0)]
+#[cfg(test)]
 mod cpu_test {
     use ram::Ram;
     use cpu::{Cpu, START};
@@ -401,7 +401,24 @@ mod cpu_test {
         write_operation_on_ram(ram, START + 2, 0x8506);
         cpu.execute(ram);
 
-        assert_eq!(cpu.read_vx(5), 5);
+        assert_eq!(cpu.read_vx(0), 8);
+        assert_eq!(cpu.read_vx(5), 8);
+    }
+
+    #[test]
+    fn op_8xye_shift_vy_left_by_one_and_assigns_to_vx() {
+        let mut cpu = Cpu::new();
+        let ram = &mut Ram::new();
+    
+        //v0=1
+        write_operation_on_ram(ram, START, 0x6010);
+        cpu.execute(ram);
+
+        write_operation_on_ram(ram, START + 2, 0x850e);
+        cpu.execute(ram);
+
+        assert_eq!(cpu.read_vx(0), 32);
+        assert_eq!(cpu.read_vx(5), 32);
     }
 
     #[test]

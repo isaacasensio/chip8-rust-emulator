@@ -1,5 +1,7 @@
 use ram::Ram;
 use instruction::Instruction;
+use rand;
+use rand::Rng;
 
 pub const START: u16 = 0x200;
 pub const CARRY_FLAG: usize = 0xF;
@@ -163,9 +165,27 @@ impl Cpu {
     // Shifts VY right by one and copies the result to VX. 
     // VF is set to the value of the least significant bit of VY 
     // before the shift.[2]
-    fn shift_vy_and_assign_to_vx(&mut self, instruction: &Instruction){
+    fn shift_vy_right_and_assign_to_vx(&mut self, instruction: &Instruction){
         self.reg_vx[CARRY_FLAG] = self.reg_vx[instruction.y() as usize] & 0x01;
-        self.reg_vx[instruction.x() as usize] = self.reg_vx[instruction.y() as usize] >> 1;
+        self.reg_vx[instruction.y() as usize] = self.reg_vx[instruction.y() as usize] >> 1;
+        self.reg_vx[instruction.x() as usize] = self.reg_vx[instruction.y() as usize];
+        self.pc += 2;
+    }
+
+    // Shifts VY left by one and copies the result to VX. 
+    // VF is set to the value of the most significant bit of VY before the shift.
+    fn shift_vy_left_and_assign_to_vx(&mut self, instruction: &Instruction){
+        self.reg_vx[CARRY_FLAG] = self.reg_vx[instruction.y() as usize] & 0x01;
+        self.reg_vx[instruction.y() as usize] = self.reg_vx[instruction.y() as usize] << 1;
+        self.reg_vx[instruction.x() as usize] = self.reg_vx[instruction.y() as usize];
+        self.pc += 2;
+    }
+
+    // Sets VX to the result of a bitwise and operation on a random number 
+    // (Typically: 0 to 255) and NN.
+    fn bitwise_random(&mut self, instruction: &Instruction){
+        let rnd = rand::thread_rng().gen_range(0, 255);
+        self.reg_vx[instruction.x() as usize] = rnd & instruction.nn();
         self.pc += 2;
     }
 
@@ -208,11 +228,13 @@ impl Cpu {
             (0x8, _, _, 0x3) => self.bitwise_xor(instruction),
             (0x8, _, _, 0x4) => self.adds_vy_to_vx(instruction),
             (0x8, _, _, 0x5) => self.subtracts_vy_to_vx(instruction),
-            (0x8, _, _, 0x6) => self.shift_vy_and_assign_to_vx(instruction),
+            (0x8, _, _, 0x6) => self.shift_vy_right_and_assign_to_vx(instruction),
             (0x8, _, _, 0x7) => self.subtracts_vx_to_vy(instruction),
+            (0x8, _, _, 0xE) => self.shift_vy_left_and_assign_to_vx(instruction),
             (0x9, _, _, 0x0) => self.skip_on_vx_not_equal_vy(instruction),
             (0xA, _, _, _) => self.write_i(instruction),
             (0xB, _, _, _) => self.jump_to_address_nnn_plus_v0(instruction),
+            (0xC, _, _, _) => self.bitwise_random(instruction),
             (0xF, _, 0x1, 0xE) => self.adds_vx_to_i(instruction),
             (0xF, _, 0x5, 0x5) => self.load_from_vx_to_mem(instruction),
             (0xF, _, 0x6, 0x5) => self.load_to_mem_from_vx(instruction),

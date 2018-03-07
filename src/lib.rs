@@ -1,4 +1,6 @@
- #[macro_use]
+extern crate rand;
+
+#[macro_use]
 pub mod cpu;
 pub mod ram;
 pub mod instruction;
